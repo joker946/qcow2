@@ -29,23 +29,23 @@ def getBFName (file, backing_file_offset_start, backing_file_size):
 		info = struct.unpack(str(intBFSize)+'s', info_)
 		return str(info[0])
 def getSnapshot(file, ss_offset):
-	file.seek(int(ss_offset)+12)
+	file.seek(int(ss_offset)+12)#length of id
 	len_id_ = file.read(2)
 	len_id = struct.unpack('>H', len_id_)
-	file.seek(int(ss_offset)+14)
+	file.seek(int(ss_offset)+14)#length of name
 	len_name_ = file.read(2)
 	len_name = struct.unpack('>H', len_name_)
-	file.seek(int(ss_offset)+36)
+	file.seek(int(ss_offset)+36)#size of extra data
 	ex_data_size_ = file.read(4)
 	ex_data_size = struct.unpack('>I', ex_data_size_)
-	file.seek(int(int(ss_offset)+40+int(ex_data_size[0])))
+	file.seek(int(int(ss_offset)+40+int(ex_data_size[0])))#offset to id position
 	ss_id_ = file.read(int(len_id[0]))
 	ss_id = struct.unpack('c', ss_id_)
-	file.seek(int(int(ss_offset)+40+int(ex_data_size[0])+len_id[0]))
+	file.seek(int(int(ss_offset)+40+int(ex_data_size[0])+len_id[0]))#offset to name position
 	ss_name_ = file.read(int(len_name[0]))
 	ss_name  =struct.unpack(str(len_name[0])+'s', ss_name_)
 	ssobj = {'ss_id': ss_id[0], 'ss_name':ss_name[0]}
-	currentlength = int(int(ss_offset)+40+int(ex_data_size[0])+len_id[0]+len_name[0])
+	currentlength = int(int(ss_offset)+40+int(ex_data_size[0])+len_id[0]+len_name[0])#offset to padding to round up
 	while (currentlength%8!=0):
 		currentlength+=1
 	ssobj = {'ss_id': ss_id[0], 'ss_name':ss_name[0], 'curlen':currentlength}
