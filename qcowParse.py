@@ -15,7 +15,7 @@ from collections import OrderedDict  #for sorting keys in dictionary
 
 def createParser ():
 	parser = argparse.ArgumentParser()
-	parser.add_argument ('-d', '--directory', default = 'img/ss.img')
+	parser.add_argument ('-d', '--directory', default = 'img')
 	parser.add_argument ('-f', '--file', default = 'test.json')
 
 	return parser
@@ -173,6 +173,48 @@ def Compare(new_data):
 		sys.stdout.write(str(len(delfiles))+" file(s) was deleted\n")
 	for i in range(0, len(delfiles)):
 		sys.stdout.write(json.dumps(delfiles[i], indent = 2)+"\n")
+	#if snapshot was added
+	isnewsp = True
+	nb_newsp = 0
+	newsps = []
+	for i in range(0, len(new_data)):
+		for key in new_data[i]:
+			for j in range(0, len(data)):
+				if (key=='snapshots'):
+					if (new_data[i]['filename']==data[j]['filename']):
+						for a in range(0, len(new_data[i]['snapshots'])):
+							for b in range(0, len(data[j]['snapshots'])):
+								if (new_data[i]['snapshots'][a]['name']==data[j]['snapshots'][b]['name']):
+									isnewsp = False
+							if (isnewsp == True):
+								nb_newsp+=1
+								newsps.append(new_data[i]['snapshots'][a])
+							isnewsp = True
+	if (len(newsps)!=0):
+		sys.stdout.write(str(len(newsps))+" snapshot's were added")
+	for i in range(0, len(newsps)):
+		sys.stdout.write(json.dumps(newsps[i], indent = 2)+"\n")
+	#if snapshot was deleted
+	isdelsp = True
+	nb_delsp = 0
+	delsps = []
+	for i in range(0, len(data)):
+		for key in data[i]:
+			for j in range(0, len(new_data)):
+				if (key=='snapshots'):
+					if (new_data[j]['filename']==data[i]['filename']):
+						for a in range(0, len(data[i]['snapshots'])):
+							for b in range(0, len(new_data[j]['snapshots'])):
+								if (new_data[j]['snapshots'][b]['name']==data[i]['snapshots'][a]['name']):
+									isdelsp = False
+							if (isdelsp == True):
+								nb_delsp+=1
+								delsps.append(data[i]['snapshots'][a])
+							isdelsp = True
+	if (len(delsps)!=0):
+		sys.stdout.write(str(len(delsps))+" snapshot's were deleted")
+	for i in range(0, len(delsps)):
+		sys.stdout.write(json.dumps(delsps[i], indent = 2)+"\n")
 
 	for x in range(0, len(data)):
 		for key in data[x]:
