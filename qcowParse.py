@@ -33,22 +33,28 @@ namespace = parser.parse_args(sys.argv[1:])
 
 currentpath = format(namespace.directory)
 
-def parseDirs(sSrc, iDirs=0, iFiles=0):
-	filelsData = []
-	for file in os.listdir(sSrc):
-		file_wp= os.path.join(sSrc,file) #full path to file (with dir)
-		file_o = open (file_wp, 'rb')
-		if os.path.isdir(file_wp):
-			iDirs+=1
-			iDirs, iFiles = parseDirs(file_wp,iDirs,iFiles)
-		else:
-			iFiles += 1
-			if (getInfo (file_o, 0, 3, '3s') == 'QFI'):
-				dictionaryOfFileData = getFileDict(file_o)
-				filelsData.append(dictionaryOfFileData)
-			file_o.close()
+def parseDirs(sSrc, iDirs=0, iFiles=0, filesData = []):
+	if (os.path.exists(sSrc)):
+		for file in os.listdir(sSrc):
+			file_wp= os.path.join(sSrc,file) #full path to file (with dir)
+			if os.path.isdir(file_wp):
+				iDirs+=1
+				#sys.stdout.write('\nFolder: ' + file_wp)
+				filesData, iDirs, iFiles = parseDirs(file_wp,iDirs,iFiles,filesData)
+			else:
+				file_o = open (file_wp, 'rb')
+				iFiles += 1
+				#sys.stdout.write ("\nFile: " + file_wp)
+				if (getInfo (file_o, 0, 3, '3s') == 'QFI'):
+					#sys.stdout.write(' - QFI-file!')
+					dictionaryOfFileData = getFileDict(file_o)
+					filesData.append(dictionaryOfFileData)
+				file_o.close()
+		return filesData
+	else:
+		sys.stderr.write("Wrong path typed\n")
+		return None
 
-	return filelsData
 
 def getInfo (file, begin, read, paramOfUnpack):
 	file.seek(begin)
@@ -139,102 +145,113 @@ def getFileDict(file):
 	
 def Compare(new_data):
 	#load json
-	json_data = open(namespace.file)
-	data = json.load(json_data)
-	#if new file was added
-	isnewfile = True
-	nb_newfiles = 0
-	newfiles = []
-	for i in range(0, len(new_data)):
-		for j in range (0, len(data)):
-			if (new_data[i]['filename'] == data[j]['filename']):
-				isnewfile = False
-		if (isnewfile == True):
-			nb_newfiles += 1
-			newfiles.append(new_data[i])
-		isnewfile = True
-	if (len(newfiles)!=0):
-		sys.stdout.write(str(len(newfiles))+" new file(s) was added\n")
-	for i in range(0, len(newfiles)):
-		sys.stdout.write(json.dumps(newfiles[i],indent = 2)+"\n")
-	#if file was deleted
-	isdelfile = True
-	nb_delfiles = 0
-	delfiles = []
-	for i in range(0, len(data)):
-		for j in range (0, len(new_data)):
-			if (data[i]['filename'] == new_data[j]['filename']):
-				isdelfile = False
-		if (isdelfile == True):
-			nb_delfiles +=1
-			delfiles.append(data[i])
-		isdelfile = True
-	if (len(delfiles)!=0):
-		sys.stdout.write(str(len(delfiles))+" file(s) was deleted\n")
-	for i in range(0, len(delfiles)):
-		sys.stdout.write(json.dumps(delfiles[i], indent = 2)+"\n")
-	#if snapshot was added
-	isnewsp = True
-	nb_newsp = 0
-	newsps = []
-	for i in range(0, len(new_data)):
-		for key in new_data[i]:
-			for j in range(0, len(data)):
-				if (key=='snapshots'):
-					if (new_data[i]['filename']==data[j]['filename']):
-						for a in range(0, len(new_data[i]['snapshots'])):
-							for b in range(0, len(data[j]['snapshots'])):
-								if (new_data[i]['snapshots'][a]['name']==data[j]['snapshots'][b]['name']):
-									isnewsp = False
-							if (isnewsp == True):
-								nb_newsp+=1
-								newsps.append(new_data[i]['snapshots'][a])
-							isnewsp = True
-	if (len(newsps)!=0):
-		sys.stdout.write(str(len(newsps))+" snapshot's were added")
-	for i in range(0, len(newsps)):
-		sys.stdout.write(json.dumps(newsps[i], indent = 2)+"\n")
-	#if snapshot was deleted
-	isdelsp = True
-	nb_delsp = 0
-	delsps = []
-	for i in range(0, len(data)):
-		for key in data[i]:
-			for j in range(0, len(new_data)):
-				if (key=='snapshots'):
-					if (new_data[j]['filename']==data[i]['filename']):
-						for a in range(0, len(data[i]['snapshots'])):
-							for b in range(0, len(new_data[j]['snapshots'])):
-								if (new_data[j]['snapshots'][b]['name']==data[i]['snapshots'][a]['name']):
-									isdelsp = False
-							if (isdelsp == True):
-								nb_delsp+=1
-								delsps.append(data[i]['snapshots'][a])
-							isdelsp = True
-	if (len(delsps)!=0):
-		sys.stdout.write(str(len(delsps))+" snapshot's were deleted")
-	for i in range(0, len(delsps)):
-		sys.stdout.write(json.dumps(delsps[i], indent = 2)+"\n")
-
-	for x in range(0, len(data)):
-		for key in data[x]:
+	if (new_data==None):
+		return
+	try:
+		json_data = open(namespace.file)
+	except IOError, e:
+		sys.stderr.write("There is not any file with name %s \n"%(namespace.file))
+	else:
+		try:
+			data = json.load(json_data)
+		except ValueError, e:
+			sys.stderr.write("%s may be corrupted \n"%(namespace.file))
+		else:
+		#if new file was added
+			isnewfile = True
+			nb_newfiles = 0
+			newfiles = []
 			for i in range(0, len(new_data)):
-				if (data[x]['filename']==new_data[i]['filename']):
-					if (data[x][key]!=new_data[i][key] and key!='snapshots'):
-						er_obj = "In file: " + str(new_data[i]['filename'] + " changed " + key+ " (Old Value: "+ str(data[x][key])+ ") (New Value: "+ str(new_data[i][key])+")")
-						sys.stdout.write(er_obj+"\n")
-					if (key=='snapshots'):
-						for a in range(0, len(data[x]['snapshots'])):
-							for skey in data[x]['snapshots'][a]:
-								for b in range(0, len(new_data[i]['snapshots'])):
-									if (data[x][key][a]['id']==new_data[i][key][b]['id']):
-										if (data[x]['snapshots'][a][skey]!=new_data[i]['snapshots'][b][skey]):
-											er_obj = "In file: " + str(new_data[i]['filename'] + " changed snapshot's  "+ skey +" (Old Value: "+ str(data[x][key][a][skey])+ ") (New Value: "+ str(new_data[i][key][b][skey])+")")
-											sys.stdout.write(er_obj+"\n")
+				for j in range (0, len(data)):
+					if (new_data[i]['filename'] == data[j]['filename']):
+						isnewfile = False
+				if (isnewfile == True):
+					nb_newfiles += 1
+					newfiles.append(new_data[i])
+				isnewfile = True
+			if (len(newfiles)!=0):
+				sys.stdout.write("%s new file(s) was added\n"%(str(len(newfiles))))
+			for i in range(0, len(newfiles)):
+				sys.stdout.write(json.dumps(newfiles[i],indent = 2)+"\n")
+			#if file was deleted
+			isdelfile = True
+			nb_delfiles = 0
+			delfiles = []
+			for i in range(0, len(data)):
+				for j in range (0, len(new_data)):
+					if (data[i]['filename'] == new_data[j]['filename']):
+						isdelfile = False
+				if (isdelfile == True):
+					nb_delfiles +=1
+					delfiles.append(data[i])
+				isdelfile = True
+			if (len(delfiles)!=0):
+				sys.stdout.write("%s file(s) was deleted\n"%(str(len(delfiles))))
+			for i in range(0, len(delfiles)):
+				sys.stdout.write(json.dumps(delfiles[i], indent = 2)+"\n")
+			#if snapshot was added
+			isnewsp = True
+			nb_newsp = 0
+			newsps = []
+			for i in range(0, len(new_data)):
+				for key in new_data[i]:
+					for j in range(0, len(data)):
+						if (key=='snapshots'):
+							if (new_data[i]['filename']==data[j]['filename']):
+								for a in range(0, len(new_data[i]['snapshots'])):
+									for b in range(0, len(data[j]['snapshots'])):
+										if (new_data[i]['snapshots'][a]['name']==data[j]['snapshots'][b]['name']):
+											isnewsp = False
+									if (isnewsp == True):
+										nb_newsp+=1
+										newsps.append(new_data[i]['snapshots'][a])
+									isnewsp = True
+			if (len(newsps)!=0):
+				sys.stdout.write("%s snapshot's were added"%(str(len(newsps))))
+			for i in range(0, len(newsps)):
+				sys.stdout.write(json.dumps(newsps[i], indent = 2)+"\n")
+			#if snapshot was deleted
+			isdelsp = True
+			nb_delsp = 0
+			delsps = []
+			for i in range(0, len(data)):
+				for key in data[i]:
+					for j in range(0, len(new_data)):
+						if (key=='snapshots'):
+							if (new_data[j]['filename']==data[i]['filename']):
+								for a in range(0, len(data[i]['snapshots'])):
+									for b in range(0, len(new_data[j]['snapshots'])):
+										if (new_data[j]['snapshots'][b]['name']==data[i]['snapshots'][a]['name']):
+											isdelsp = False
+									if (isdelsp == True):
+										nb_delsp+=1
+										delsps.append(data[i]['snapshots'][a])
+									isdelsp = True
+			if (len(delsps)!=0):
+				sys.stdout.write("%s snapshot's were deleted"%(str(len(delsps))))
+			for i in range(0, len(delsps)):
+				sys.stdout.write(json.dumps(delsps[i], indent = 2)+"\n")
 
-				
+			for x in range(0, len(data)):
+				for key in data[x]:
+					for i in range(0, len(new_data)):
+						if (data[x]['filename']==new_data[i]['filename']):
+							if (data[x][key]!=new_data[i][key] and key!='snapshots'):
+								er_obj = "In file: %s changed %s (Old Value: %s) (New Value: %s)"%(str(new_data[i]['filename']), 
+									str(key), str(data[x][key]), str(new_data[i][key]))
+								sys.stdout.write(er_obj+"\n")
+							if (key=='snapshots'):
+								for a in range(0, len(data[x]['snapshots'])):
+									for skey in data[x]['snapshots'][a]:
+										for b in range(0, len(new_data[i]['snapshots'])):
+											if (data[x][key][a]['id']==new_data[i][key][b]['id']):
+												if (data[x]['snapshots'][a][skey]!=new_data[i]['snapshots'][b][skey]):
+													er_obj = "In file: %s changed snapshot's %s (Old Value: %s)(New Value: %s)"%(str(new_data[i]['filename']),
+													 str(skey), str(data[x][key][a][skey]), str(new_data[i][key][b][skey]))
+													sys.stdout.write(er_obj+"\n")
 
-	json_data.close()
+						
+		finally:
+			json_data.close()
 files = parseDirs(currentpath) #array of files in dict-format
-
 Compare(files)
